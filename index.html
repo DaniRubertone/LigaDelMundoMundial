@@ -784,14 +784,11 @@
         </div>
         <div class="mp-form-group">
           <label class="mp-label">Rival</label>
-          <div class="mp-autocomplete-wrap">
-            <input type="text" id="mp-partido-rival" class="mp-input" placeholder="Buscar equipo rival..." autocomplete="off" oninput="mpBuscarRival(this.value)" onfocus="mpBuscarRival(this.value)">
-            <div id="mp-rival-autocomplete" class="mp-autocomplete-list"></div>
-          </div>
+          <select id="mp-partido-rival" class="mp-select"></select>
         </div>
         <div class="mp-form-group">
           <label class="mp-label">Torneo</label>
-          <select id="mp-partido-torneo" class="mp-select" onchange="mpActualizarModoHint(); mpBuscarRival(document.getElementById('mp-partido-rival').value)">
+          <select id="mp-partido-torneo" class="mp-select" onchange="mpActualizarModoHint(); mpFillRivalSelect()">
             <option value="Local">Torneo Local</option>
             <option value="CopaArg">Copa Argentina</option>
             <option value="Sudamericana">Copa Sudamericana</option>
@@ -12518,6 +12515,13 @@ function mpRenderRoster() {
         var listaClass = 'lista-' + (r.lista || '');
         var uidStr = JSON.stringify(uid);
         return '<tr>' +
+          '<td><div class="mp-accion-dropdown">' +
+            '<button class="mp-btn mp-btn-secondary mp-btn-sm" onmousedown="event.preventDefault();mpToggleMenu(' + uidStr + ')">&#8942;</button>' +
+            '<div class="mp-accion-menu" id="menu-' + uid + '">' +
+              '<button onmousedown="event.preventDefault();mpVenderJugador(' + uidStr + ')">&#128176; Vender</button>' +
+              '<button class="danger" onmousedown="event.preventDefault();mpQuitarJugador(' + uidStr + ')">&#10005; Quitar</button>' +
+            '</div>' +
+          '</div></td>' +
           '<td class="num-cell">' + numStr + '</td>' +
           '<td><div class="nombre-cell">' + escHtml(r.nombre) + equipoBadge + '</div></td>' +
           '<td class="equipo-cell">' + escHtml(r.equipo) + '</td>' +
@@ -12525,24 +12529,13 @@ function mpRenderRoster() {
           '<td class="pts-val">' + r.pts + '</td>' +
           usosCells +
           '<td class="valor-val">' + r.valor + 'M</td>' +
-          '<td><div class="mp-accion-dropdown">' +
-            '<button class="mp-btn mp-btn-secondary mp-btn-sm" onmousedown="event.preventDefault();mpToggleMenu(' + uidStr + ')">&#8942;</button>' +
-            '<div class="mp-accion-menu" id="menu-' + uid + '">' +
-              '<button onmousedown="event.preventDefault();mpUsarJugador(' + uidStr + ',\'local\')">-1 T.Local</button>' +
-              '<button onmousedown="event.preventDefault();mpUsarJugador(' + uidStr + ',\'suda\')">-1 Sudam.</button>' +
-              '<button onmousedown="event.preventDefault();mpUsarJugador(' + uidStr + ',\'lib\')">-1 Lib/Ch.</button>' +
-              '<button onmousedown="event.preventDefault();mpUsarJugador(' + uidStr + ',\'mdo\')">-1 Am/Mdo</button>' +
-              '<button onmousedown="event.preventDefault();mpVenderJugador(' + uidStr + ')">&#128176; Vender</button>' +
-              '<button class="danger" onmousedown="event.preventDefault();mpQuitarJugador(' + uidStr + ')">&#10005; Quitar</button>' +
-            '</div>' +
-          '</div></td>' +
           '</tr>';
       }).join('');
       rosterEl.innerHTML =
         '<table class="mp-roster-table"><thead><tr>' +
-        '<th>#</th><th>Jugador</th><th>Equipo</th><th>Lista</th><th>Pts</th>' +
+        '<th></th><th>#</th><th>Jugador</th><th>Equipo</th><th>Lista</th><th>Pts</th>' +
         '<th>T.Local</th><th>Sudam.</th><th>Lib/Ch.</th><th>Am/Mdo</th>' +
-        '<th>Valor</th><th></th>' +
+        '<th>Valor</th>' +
         '</tr></thead><tbody>' + rows + '</tbody></table>';
     }
   }
@@ -12587,31 +12580,18 @@ function mpGetEquiposPorTorneo(torneo) {
   return Array.from(set).sort((a, b) => a.localeCompare(b, 'es'));
 }
 
-function mpBuscarRival(q) {
-  const ac = document.getElementById('mp-rival-autocomplete');
-  if (!ac) return;
-  const torneo = document.getElementById('mp-partido-torneo').value;
-  const equipos = mpGetEquiposPorTorneo(torneo);
-  const norm = q.trim().toLowerCase();
-  // Si no hay texto, mostrar todos; si hay texto, filtrar
-  const matches = norm ? equipos.filter(e => normalizar(e).includes(normalizar(norm))) : equipos;
-  if (!matches.length || (matches.length === 1 && normalizar(matches[0]) === normalizar(norm))) {
-    ac.innerHTML = '';
-    ac.classList.remove('open');
-    return;
-  }
-  ac.innerHTML = matches.slice(0, 12).map(e =>
-    '<div class="mp-autocomplete-item" onmousedown="event.preventDefault();mpSeleccionarRival(' + JSON.stringify(e) + ')">' + escHtml(e) + '</div>'
-  ).join('');
-  ac.classList.add('open');
+function mpFillRivalSelect() {
+  var sel = document.getElementById('mp-partido-rival');
+  if (!sel) return;
+  var torneo = document.getElementById('mp-partido-torneo').value;
+  var equipos = mpGetEquiposPorTorneo(torneo);
+  sel.innerHTML = '<option value="">— Equipo rival —</option>' +
+    equipos.map(e => '<option value="' + escHtml(e) + '">' + escHtml(e) + '</option>').join('');
 }
 
-function mpSeleccionarRival(nombre) {
-  const inp = document.getElementById('mp-partido-rival');
-  const ac = document.getElementById('mp-rival-autocomplete');
-  if (inp) inp.value = nombre;
-  if (ac) { ac.innerHTML = ''; ac.classList.remove('open'); }
-}
+function mpBuscarRival(q) {} // kept for compatibility, no longer used
+
+function mpSeleccionarRival(nombre) {} // kept for compatibility
 
 function mpActualizarModoHint() {
   mpRenderJugadoresSelector();
@@ -12628,23 +12608,24 @@ function mpRenderJugadoresSelector() {
     return;
   }
   wrap.innerHTML = datos.roster.map(function(r) {
+    var uid = r._idx !== undefined ? r._idx : r.numero;
     var usos = campo ? r[campo] : 0;
     var sinUsos = usos <= 0;
-    var sel = wrap.dataset['sel_' + r.numero] === '1';
+    var sel = wrap.dataset['sel_' + uid] === '1';
     return '<span class="mp-jug-chip' + (sinUsos ? ' sin-usos' : '') + (sel ? ' selected' : '') + '" ' +
-      'data-numero="' + r.numero + '" ' +
-      'onclick="mpToggleJugadorPartido(this,' + JSON.stringify(r.numero) + ',' + sinUsos + ')">' +
+      'data-uid="' + uid + '" ' +
+      'onclick="mpToggleJugadorPartido(this,' + JSON.stringify(uid) + ',' + sinUsos + ')">' +
       escHtml(r.nombre) +
       '<span class="mp-jug-chip-usos">(' + usos + ')</span>' +
       '</span>';
   }).join('');
 }
 
-function mpToggleJugadorPartido(el, numero, sinUsos) {
+function mpToggleJugadorPartido(el, uid, sinUsos) {
   if (sinUsos) return;
   var wrap = document.getElementById('mp-partido-jugadores-wrap');
-  var cur = wrap.dataset['sel_' + numero];
-  wrap.dataset['sel_' + numero] = cur === '1' ? '0' : '1';
+  var cur = wrap.dataset['sel_' + uid];
+  wrap.dataset['sel_' + uid] = cur === '1' ? '0' : '1';
   el.classList.toggle('selected');
 }
 
@@ -12653,8 +12634,9 @@ function mpGetJugadoresSeleccionados() {
   if (!wrap) return [];
   var datos = mpCargarDatos();
   return datos.roster.filter(function(r) {
-    return wrap.dataset['sel_' + r.numero] === '1';
-  }).map(function(r) { return r.numero; });
+    var uid = r._idx !== undefined ? r._idx : r.numero;
+    return wrap.dataset['sel_' + uid] === '1';
+  }).map(function(r) { return r._idx !== undefined ? r._idx : r.numero; });
 }
 
 function agregarPartido() {
@@ -12666,10 +12648,10 @@ function agregarPartido() {
   var jugUsados = mpGetJugadoresSeleccionados();
   var campo = MP_TORNEO_CAMPO[torneo];
   const datos = mpCargarDatos();
-  // descontar usos
+  // descontar usos usando _idx
   if (campo) {
-    jugUsados.forEach(function(numero) {
-      var r = datos.roster.find(function(r) { return r.numero === numero; });
+    jugUsados.forEach(function(uid) {
+      var r = datos.roster.find(function(r) { return r._idx === uid || (r._idx === undefined && r.numero === uid); });
       if (r && r[campo] > 0) r[campo]--;
     });
   }
@@ -12711,6 +12693,8 @@ function mpRenderPartidos() {
       sel.innerHTML = equipos.map(e => '<option value="' + escHtml(e) + '">' + escHtml(e) + '</option>').join('');
     }
   }
+  // Poblar select rival
+  mpFillRivalSelect();
   const el = document.getElementById('mp-partidos-list');
   if (!el) return;
   if (!datos.partidos.length) {
