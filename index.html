@@ -92,8 +92,10 @@
   thead th.sorted-desc::after { content: " \25BC"; }
   tbody tr { border-bottom: 1px solid #1e2a45; transition: background 0.15s; cursor: pointer; }
   tbody tr:hover { background: #1e2d50; }
+  tbody tr.selected { background: #1e2d50; outline: 2px solid #e2b84b44; }
   tbody tr.golden-row { background: #2a2010; }
   tbody tr.golden-row:hover { background: #3a3015; }
+  tbody tr.golden-row.selected { background: #3a3015; outline: 2px solid #e2b84b44; }
   tbody td { padding: 9px 12px; vertical-align: middle; }
   .badge-lista { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; }
   .lista-Local { background: #3a2a00; color: #f0c040; }
@@ -764,15 +766,18 @@
       <div class="mp-form-grid">
         <div class="mp-form-group">
           <label class="mp-label">Mi equipo</label>
-          <input type="text" id="mp-partido-miequipo" class="mp-input" placeholder="Ej: River">
+          <select id="mp-partido-miequipo" class="mp-select"></select>
         </div>
         <div class="mp-form-group">
           <label class="mp-label">Rival</label>
-          <input type="text" id="mp-partido-rival" class="mp-input" placeholder="Ej: Boca">
+          <div class="mp-autocomplete-wrap">
+            <input type="text" id="mp-partido-rival" class="mp-input" placeholder="Buscar equipo rival..." autocomplete="off" oninput="mpBuscarRival(this.value)" onfocus="mpBuscarRival(this.value)">
+            <div id="mp-rival-autocomplete" class="mp-autocomplete-list"></div>
+          </div>
         </div>
         <div class="mp-form-group">
           <label class="mp-label">Torneo</label>
-          <select id="mp-partido-torneo" class="mp-select" onchange="mpActualizarModoHint()">
+          <select id="mp-partido-torneo" class="mp-select" onchange="mpActualizarModoHint(); mpBuscarRival(document.getElementById('mp-partido-rival').value)">
             <option value="Local">Torneo Local</option>
             <option value="CopaArg">Copa Argentina</option>
             <option value="Sudamericana">Copa Sudamericana</option>
@@ -11965,6 +11970,7 @@ function applyFilters() {
   });
 
   currentFiltered = arr;
+  _selectedRow = null;
   renderTable(arr);
   document.getElementById('count-shown').textContent = arr.length;
 
@@ -11983,7 +11989,7 @@ function renderTable(arr) {
     const icons = (j.arquero ? '<span title="Arquero">&#129510;</span>' : '') +
                   (j.golden ? '<span title="Golden">&#10024;</span>' : '');
     const nro = j.numero === 'Gld' ? '&#9733;' : j.numero;
-    return '<tr class="' + (j.golden ? 'golden-row' : '') + '" onclick="openModal(' + i + ')">' +
+    return '<tr class="' + (j.golden ? 'golden-row' : '') + '" onclick="handleRowClick(this,' + i + ')">' +
       '<td class="num-cell">' + nro + '</td>' +
       '<td><div class="nombre-cell">' + icons + j.nombre + '</div></td>' +
       '<td class="equipo-cell">' + (j.golden ? '<em style="color:#e2b84b;font-style:normal">&#10024; Universal</em>' : j.equipo) + '</td>' +
@@ -11997,6 +12003,19 @@ function renderTable(arr) {
       '</tr>';
   });
   tbody.innerHTML = rows.join('');
+}
+
+let _selectedRow = null;
+function handleRowClick(tr, idx) {
+  if (_selectedRow === tr) {
+    // Segunda vez: abrir modal
+    openModal(idx);
+  } else {
+    // Primera vez: resaltar
+    if (_selectedRow) _selectedRow.classList.remove('selected');
+    _selectedRow = tr;
+    tr.classList.add('selected');
+  }
 }
 
 function sortBy(col) {
@@ -12203,6 +12222,7 @@ function mpConfirmarEquipoInicial() {
   mpGuardarDatos(datos);
   mpRenderMiEquipo();
   mpRenderRoster();
+  mpRenderPartidos();
 }
 
 function mpTomarEquipoPrestado() {
@@ -12222,6 +12242,7 @@ function mpTomarEquipoPrestado() {
   mpGuardarDatos(datos);
   mpRenderMiEquipo();
   mpRenderRoster();
+  mpRenderPartidos();
 }
 
 function mpRenderMiEquipo() {
@@ -12494,6 +12515,46 @@ var MP_TORNEO_CAMPO = {
   Mundial:      'usosMdo'
 };
 
+// Mapeo torneo -> lista de jugadores (para obtener equipos rivales)
+const MP_TORNEO_LISTA = {
+  'Local': 'Local', 'CopaArg': 'Local',
+  'Sudamericana': 'Sudamerica', 'Libertadores': 'Sudamerica',
+  'Champions': 'Champions',
+  'CopaAmerica': 'Mundial', 'Mundial': 'Mundial'
+};
+
+function mpGetEquiposPorTorneo(torneo) {
+  const lista = MP_TORNEO_LISTA[torneo] || 'Local';
+  const set = new Set(JUGADORES.filter(j => j.lista === lista && j.equipo !== 'Golden').map(j => j.equipo));
+  return Array.from(set).sort((a, b) => a.localeCompare(b, 'es'));
+}
+
+function mpBuscarRival(q) {
+  const ac = document.getElementById('mp-rival-autocomplete');
+  if (!ac) return;
+  const torneo = document.getElementById('mp-partido-torneo').value;
+  const equipos = mpGetEquiposPorTorneo(torneo);
+  const norm = q.trim().toLowerCase();
+  // Si no hay texto, mostrar todos; si hay texto, filtrar
+  const matches = norm ? equipos.filter(e => normalizar(e).includes(normalizar(norm))) : equipos;
+  if (!matches.length || (matches.length === 1 && normalizar(matches[0]) === normalizar(norm))) {
+    ac.innerHTML = '';
+    ac.classList.remove('open');
+    return;
+  }
+  ac.innerHTML = matches.slice(0, 12).map(e =>
+    '<div class="mp-autocomplete-item" onclick="mpSeleccionarRival(' + JSON.stringify(e) + ')">' + escHtml(e) + '</div>'
+  ).join('');
+  ac.classList.add('open');
+}
+
+function mpSeleccionarRival(nombre) {
+  const inp = document.getElementById('mp-partido-rival');
+  const ac = document.getElementById('mp-rival-autocomplete');
+  if (inp) inp.value = nombre;
+  if (ac) { ac.innerHTML = ''; ac.classList.remove('open'); }
+}
+
 function mpActualizarModoHint() {
   mpRenderJugadoresSelector();
 }
@@ -12580,6 +12641,18 @@ var MP_TORNEO_LABELS = {
 
 function mpRenderPartidos() {
   const datos = mpCargarDatos();
+  // Poblar select "Mi equipo" con los equipos del player
+  const sel = document.getElementById('mp-partido-miequipo');
+  if (sel) {
+    const equipos = [];
+    if (datos.equipoInicial) equipos.push(datos.equipoInicial);
+    (datos.equiposPrestados || []).forEach(e => { if (!equipos.includes(e)) equipos.push(e); });
+    if (equipos.length === 0) {
+      sel.innerHTML = '<option value="">— Sin equipos aún —</option>';
+    } else {
+      sel.innerHTML = equipos.map(e => '<option value="' + escHtml(e) + '">' + escHtml(e) + '</option>').join('');
+    }
+  }
   const el = document.getElementById('mp-partidos-list');
   if (!el) return;
   if (!datos.partidos.length) {
@@ -12634,6 +12707,8 @@ document.addEventListener('click', function(e) {
   if (!e.target.closest('.mp-autocomplete-wrap')) {
     var list = document.getElementById('mp-autocomplete-list');
     if (list) list.classList.remove('open');
+    var rivalAc = document.getElementById('mp-rival-autocomplete');
+    if (rivalAc) { rivalAc.innerHTML = ''; rivalAc.classList.remove('open'); }
   }
 });
 
