@@ -12202,8 +12202,8 @@ function showMpSection(name, btn) {
 // =================== MI EQUIPO ===================
 
 function mpGetEquipos() {
-  // Devuelve lista ordenada de todos los equipos únicos (excepto "Golden")
-  const set = new Set(JUGADORES.map(j => j.equipo).filter(e => e && e !== 'Golden'));
+  // Solo equipos del Torneo Local para el equipo inicial
+  const set = new Set(JUGADORES.filter(j => j.lista === 'Local' && j.equipo !== 'Golden').map(j => j.equipo));
   return Array.from(set).sort((a, b) => a.localeCompare(b, 'es'));
 }
 
@@ -12390,25 +12390,30 @@ function mpBuscarJugador(q) {
   const qn = normalizar(q);
   if (qn.length < 1) { list.classList.remove('open'); list.innerHTML = ''; return; }
   const datos = mpCargarDatos();
-  const yaEnRoster = new Set(datos.roster.map(r => r.numero));
-  const resultados = JUGADORES.filter(j => {
-    if (yaEnRoster.has(j.numero)) return false;
-    return normalizar(j.nombre).includes(qn) || normalizar(j.equipo || '').includes(qn);
-  }).slice(0, 12);
-  if (!resultados.length) { list.classList.remove('open'); list.innerHTML = ''; return; }
-  list.innerHTML = resultados.map(j =>
-    '<div class="mp-autocomplete-item" onclick="mpAgregarJugador(' + JSON.stringify(j.numero) + ')">' +
-    escHtml(j.nombre) + ' <span class="aca-team">' + escHtml(j.equipo || '') + ' · ' + j.valor + 'M · ' + j.pts + 'pts</span></div>'
-  ).join('');
+  const yaEnRoster = new Set(datos.roster.map(r => r._idx));
+  const resultados = [];
+  JUGADORES.forEach(function(j, idx) {
+    if (yaEnRoster.has(idx)) return;
+    if (normalizar(j.nombre).includes(qn) || normalizar(j.equipo || '').includes(qn)) {
+      resultados.push({ j, idx });
+    }
+  });
+  const top = resultados.slice(0, 12);
+  if (!top.length) { list.classList.remove('open'); list.innerHTML = ''; return; }
+  list.innerHTML = top.map(function(item) {
+    return '<div class="mp-autocomplete-item" onmousedown="event.preventDefault();mpAgregarJugador(' + item.idx + ')">' +
+      escHtml(item.j.nombre) + ' <span class="aca-team">' + escHtml(item.j.equipo || '') + ' · ' + escHtml(item.j.lista) + ' · ' + item.j.valor + 'M · ' + item.j.pts + 'pts</span></div>';
+  }).join('');
   list.classList.add('open');
 }
 
-function mpAgregarJugador(numero) {
-  const j = JUGADORES.find(function(j) { return j.numero === numero; });
+function mpAgregarJugador(idx) {
+  const j = JUGADORES[idx];
   if (!j) return;
   const datos = mpCargarDatos();
-  if (datos.roster.some(r => r.numero === numero)) return;
+  if (datos.roster.some(r => r._idx === idx)) return;
   datos.roster.push({
+    _idx: idx,
     numero: j.numero,
     nombre: j.nombre,
     equipo: j.equipo || '',
@@ -12423,12 +12428,14 @@ function mpAgregarJugador(numero) {
   mpGuardarDatos(datos);
   document.getElementById('mp-search-jugador').value = '';
   document.getElementById('mp-autocomplete-list').classList.remove('open');
+  document.getElementById('mp-autocomplete-list').innerHTML = '';
   mpRenderRoster();
+  mpRenderPartidos();
 }
 
-function mpUsarJugador(numero, modo) {
+function mpUsarJugador(idx, modo) {
   const datos = mpCargarDatos();
-  const r = datos.roster.find(r => r.numero === numero);
+  const r = datos.roster.find(r => r._idx === idx || r._idx === undefined && r.numero === idx);
   if (!r) return;
   const modos = { local: 'usosLocal', suda: 'usosSuda', lib: 'usosLib', mdo: 'usosMdo' };
   const campo = modos[modo];
@@ -12439,10 +12446,10 @@ function mpUsarJugador(numero, modo) {
   mpRenderJugadoresSelector();
 }
 
-function mpVenderJugador(numero) {
+function mpVenderJugador(uid) {
   if (!confirm('¿Marcar este jugador como vendido?')) return;
   const datos = mpCargarDatos();
-  const idx = datos.roster.findIndex(r => r.numero === numero);
+  const idx = datos.roster.findIndex(r => r._idx === uid || (r._idx === undefined && r.numero === uid));
   if (idx === -1) return;
   const j = datos.roster[idx];
   datos.roster.splice(idx, 1);
@@ -12453,28 +12460,20 @@ function mpVenderJugador(numero) {
   mpRenderEconomia();
 }
 
-function mpQuitarJugador(numero) {
+function mpQuitarJugador(uid) {
   if (!confirm('¿Quitar este jugador del plantel?')) return;
   const datos = mpCargarDatos();
-  datos.roster = datos.roster.filter(r => r.numero !== numero);
+  datos.roster = datos.roster.filter(r => !(r._idx === uid || (r._idx === undefined && r.numero === uid)));
   mpGuardarDatos(datos);
   mpRenderRoster();
 }
 
-var _rosterSelectedRow = null;
-function mpRosterRowClick(tr, numero) {
-  // Cerrar cualquier menú abierto
+function mpToggleMenu(uid) {
+  var menu = document.getElementById('menu-' + uid);
+  if (!menu) return;
+  var isOpen = menu.classList.contains('open');
   document.querySelectorAll('.mp-accion-menu.open').forEach(function(m) { m.classList.remove('open'); });
-  if (_rosterSelectedRow === tr) {
-    // Segunda vez: abrir menú de acciones
-    var menu = document.getElementById('menu-' + numero);
-    if (menu) menu.classList.add('open');
-  } else {
-    // Primera vez: seleccionar fila
-    if (_rosterSelectedRow) _rosterSelectedRow.classList.remove('mp-roster-selected');
-    _rosterSelectedRow = tr;
-    tr.classList.add('mp-roster-selected');
-  }
+  if (!isOpen) menu.classList.add('open');
 }
 // Cerrar menú al hacer click fuera
 document.addEventListener('click', function(e) {
@@ -12503,6 +12502,7 @@ function mpRenderRoster() {
       rosterEl.innerHTML = '<div class="mp-empty">No hay jugadores en el plantel.</div>';
     } else {
       var rows = datos.roster.map(function(r) {
+        var uid = r._idx !== undefined ? r._idx : JSON.stringify(r.numero);
         var equipoBadge = '';
         if (datos.equipoInicial && r.equipo === datos.equipoInicial) {
           equipoBadge = ' <span class="mp-equipo-badge propio">Propio</span>';
@@ -12512,11 +12512,12 @@ function mpRenderRoster() {
         var usosCells = MP_USO_CAMPOS.map(function(u) {
           var count = r[u.campo];
           var empty = count <= 0;
-          return '<td class="' + (empty ? '' : 'pts-val') + '" style="' + (empty ? 'color:#555' : '') + '">' + count + '</td>';
+          return '<td style="' + (empty ? 'color:#555' : 'color:#e2b84b;font-weight:700') + '">' + count + '</td>';
         }).join('');
         var numStr = (r.numero === 'Gld' ? '&#9733;' : r.numero);
         var listaClass = 'lista-' + (r.lista || '');
-        return '<tr onclick="mpRosterRowClick(this,' + JSON.stringify(r.numero) + ')">' +
+        var uidStr = JSON.stringify(uid);
+        return '<tr>' +
           '<td class="num-cell">' + numStr + '</td>' +
           '<td><div class="nombre-cell">' + escHtml(r.nombre) + equipoBadge + '</div></td>' +
           '<td class="equipo-cell">' + escHtml(r.equipo) + '</td>' +
@@ -12524,14 +12525,15 @@ function mpRenderRoster() {
           '<td class="pts-val">' + r.pts + '</td>' +
           usosCells +
           '<td class="valor-val">' + r.valor + 'M</td>' +
-          '<td><div class="mp-accion-dropdown" id="dd-' + escHtml(String(r.numero)) + '">' +
-            '<div class="mp-accion-menu" id="menu-' + escHtml(String(r.numero)) + '">' +
-              '<button onclick="event.stopPropagation();mpUsarJugador(' + JSON.stringify(r.numero) + ',\'local\')">-1 T.Local</button>' +
-              '<button onclick="event.stopPropagation();mpUsarJugador(' + JSON.stringify(r.numero) + ',\'suda\')">-1 Sudam.</button>' +
-              '<button onclick="event.stopPropagation();mpUsarJugador(' + JSON.stringify(r.numero) + ',\'lib\')">-1 Lib/Ch.</button>' +
-              '<button onclick="event.stopPropagation();mpUsarJugador(' + JSON.stringify(r.numero) + ',\'mdo\')">-1 Am/Mdo</button>' +
-              '<button onclick="event.stopPropagation();mpVenderJugador(' + JSON.stringify(r.numero) + ')">&#128176; Vender</button>' +
-              '<button class="danger" onclick="event.stopPropagation();mpQuitarJugador(' + JSON.stringify(r.numero) + ')">&#10005; Quitar</button>' +
+          '<td><div class="mp-accion-dropdown">' +
+            '<button class="mp-btn mp-btn-secondary mp-btn-sm" onmousedown="event.preventDefault();mpToggleMenu(' + uidStr + ')">&#8942;</button>' +
+            '<div class="mp-accion-menu" id="menu-' + uid + '">' +
+              '<button onmousedown="event.preventDefault();mpUsarJugador(' + uidStr + ',\'local\')">-1 T.Local</button>' +
+              '<button onmousedown="event.preventDefault();mpUsarJugador(' + uidStr + ',\'suda\')">-1 Sudam.</button>' +
+              '<button onmousedown="event.preventDefault();mpUsarJugador(' + uidStr + ',\'lib\')">-1 Lib/Ch.</button>' +
+              '<button onmousedown="event.preventDefault();mpUsarJugador(' + uidStr + ',\'mdo\')">-1 Am/Mdo</button>' +
+              '<button onmousedown="event.preventDefault();mpVenderJugador(' + uidStr + ')">&#128176; Vender</button>' +
+              '<button class="danger" onmousedown="event.preventDefault();mpQuitarJugador(' + uidStr + ')">&#10005; Quitar</button>' +
             '</div>' +
           '</div></td>' +
           '</tr>';
@@ -12599,7 +12601,7 @@ function mpBuscarRival(q) {
     return;
   }
   ac.innerHTML = matches.slice(0, 12).map(e =>
-    '<div class="mp-autocomplete-item" onclick="mpSeleccionarRival(' + JSON.stringify(e) + ')">' + escHtml(e) + '</div>'
+    '<div class="mp-autocomplete-item" onmousedown="event.preventDefault();mpSeleccionarRival(' + JSON.stringify(e) + ')">' + escHtml(e) + '</div>'
   ).join('');
   ac.classList.add('open');
 }
