@@ -147,7 +147,11 @@
   .trayectoria-nac { font-size: 0.82rem; color: #aad; margin-bottom: 5px; }
   .trayectoria-clubes { display: flex; flex-wrap: wrap; gap: 4px; }
   .trayectoria-club { background: #1a2a4a; border-radius: 12px; padding: 2px 9px; font-size: 0.78rem; color: #ccc; }
+  .trayectoria-club.en-juego { background: #1a3a2a; color: #8fe; border: 1px solid #2a5a3a; }
+  .trayectoria-club.oculto { display: none; }
+  .tray-toggle { margin-top: 6px; background: none; border: none; color: #e2b84b; font-size: 0.75rem; cursor: pointer; padding: 2px 0; text-decoration: underline; }
   .modal.golden .trayectoria-club { background: #2a1e00; }
+  .modal.golden .trayectoria-club.en-juego { background: #3a2e00; color: #f0c040; border-color: #6a5000; }
 
   /* ---- REGLAMENTOS PAGE ---- */
   .reglamentos-page { padding: 24px 20px 60px; max-width: 860px; margin: 0 auto; }
@@ -278,7 +282,7 @@
   .mp-roster-table tbody td { padding: 8px 10px; font-size: 0.85rem; vertical-align: middle; }
   /* Dropdown acciones */
   .mp-accion-dropdown { position: relative; display: inline-block; }
-  .mp-accion-menu { display: none; position: absolute; right: 0; top: 100%; background: #16213e; border: 1px solid #2a4a7f; border-radius: 8px; z-index: 50; min-width: 130px; box-shadow: 0 4px 16px rgba(0,0,0,0.4); }
+  .mp-accion-menu { display: none; position: absolute; left: 0; top: 100%; background: #16213e; border: 1px solid #2a4a7f; border-radius: 8px; z-index: 50; min-width: 130px; box-shadow: 0 4px 16px rgba(0,0,0,0.4); }
   .mp-accion-menu.open { display: block; }
   .mp-accion-menu button { display: block; width: 100%; padding: 9px 14px; background: none; border: none; color: #eee; font-size: 0.85rem; text-align: left; cursor: pointer; }
   .mp-accion-menu button:hover { background: #1e2d50; }
@@ -858,10 +862,6 @@
       <div class="partido-item"><div class="partido-label">Copa Am. / Mundial</div><div class="partido-val" id="m-mdo"></div></div>
     </div>
     <div class="badges" id="m-badges"></div>
-    <div class="clubes-section" id="m-clubes-section" style="display:none">
-      <div class="clubes-label">Clubes</div>
-      <div class="clubes-val" id="m-clubes"></div>
-    </div>
     <div class="trayectoria-section" id="m-trayectoria-section" style="display:none">
       <div class="trayectoria-label">Trayectoria</div>
       <div class="trayectoria-nac" id="m-nac"></div>
@@ -12077,18 +12077,21 @@ function openModal(idx) {
   document.getElementById('m-suda').textContent = j.sudamericana;
   document.getElementById('m-lib').textContent = j.libertadores;
   document.getElementById('m-mdo').textContent = j.mundial;
-  const clubesSection = document.getElementById('m-clubes-section');
-  if (j.clubes) {
-    document.getElementById('m-clubes').textContent = j.clubes;
-    clubesSection.style.display = 'block';
-  } else {
-    clubesSection.style.display = 'none';
-  }
   const traySection = document.getElementById('m-trayectoria-section');
   const tray = j.clubes_trayectoria || [];
   if (tray.length > 0 || j.nacionalidad) {
     document.getElementById('m-nac').textContent = j.nacionalidad ? '🌍 ' + j.nacionalidad + (j.seleccion && j.seleccion !== 'Ninguna' ? '  ·  Selección: ' + j.seleccion : '') : '';
-    document.getElementById('m-trayectoria-clubes').innerHTML = tray.map(c => '<span class="trayectoria-club">' + c + '</span>').join('');
+    // Separar clubes en juego vs resto
+    var enJuego = [], resto = [];
+    tray.forEach(function(c) {
+      if (mpClubEnJuego(c)) enJuego.push(c); else resto.push(c);
+    });
+    var html = enJuego.map(c => '<span class="trayectoria-club en-juego">' + escHtml(c) + '</span>').join('');
+    if (resto.length) {
+      html += resto.map(c => '<span class="trayectoria-club oculto">' + escHtml(c) + '</span>').join('');
+      html += '<br><button class="tray-toggle" onclick="mpToggleTray(this)">+ Ver trayectoria completa (' + tray.length + ' clubes)</button>';
+    }
+    document.getElementById('m-trayectoria-clubes').innerHTML = html;
     traySection.style.display = 'block';
   } else {
     traySection.style.display = 'none';
@@ -12213,9 +12216,28 @@ function mpGetJugadoresDeEquipo(nombre) {
 function mpFillEquipoSelect(selectId, excluirEquipo) {
   const sel = document.getElementById(selectId);
   if (!sel) return;
-  const equipos = mpGetEquipos().filter(e => e !== excluirEquipo);
-  sel.innerHTML = '<option value="">— Elegir equipo —</option>' +
-    equipos.map(e => '<option value="' + escHtml(e) + '">' + escHtml(e) + '</option>').join('');
+  // Para equipos prestados usamos todas las listas agrupadas por liga
+  const listas = [
+    { key: 'Local',      label: '🇦🇷 Torneo Local' },
+    { key: 'Sudamerica', label: '🌎 Sudamérica' },
+    { key: 'Champions',  label: '🏆 Champions' },
+    { key: 'Mundial',    label: '🌍 Selecciones' },
+  ];
+  const yaExcluidos = new Set(
+    (mpCargarDatos().equiposPrestados || []).concat(excluirEquipo ? [excluirEquipo] : [])
+  );
+  let html = '<option value="">— Elegir equipo —</option>';
+  listas.forEach(function(lista) {
+    const equipos = [...new Set(
+      JUGADORES.filter(j => j.lista === lista.key && j.equipo && j.equipo !== 'Golden').map(j => j.equipo)
+    )].sort((a, b) => a.localeCompare(b, 'es'));
+    const opts = equipos
+      .filter(e => !yaExcluidos.has(e))
+      .map(e => '<option value="' + escHtml(e) + '">' + escHtml(e) + '</option>')
+      .join('');
+    if (opts) html += '<optgroup label="' + lista.label + '">' + opts + '</optgroup>';
+  });
+  sel.innerHTML = html;
 }
 
 function mpConfirmarEquipoInicial() {
@@ -12229,7 +12251,8 @@ function mpConfirmarEquipoInicial() {
   // Agregar jugadores del equipo al roster
   const jug = mpGetJugadoresDeEquipo(nombre);
   jug.forEach(j => {
-    datos.roster.push({ numero: j.numero, nombre: j.nombre, equipo: j.equipo, valor: j.valor, pts: j.pts, lista: j.lista,
+    const idx = JUGADORES.indexOf(j);
+    datos.roster.push({ _idx: idx, numero: j.numero, nombre: j.nombre, equipo: j.equipo, valor: j.valor, pts: j.pts, lista: j.lista,
       usosLocal: j.local, usosSuda: j.sudamericana, usosLib: j.libertadores, usosMdo: j.mundial });
   });
   mpGuardarDatos(datos);
@@ -12249,7 +12272,8 @@ function mpTomarEquipoPrestado() {
   // Agregar jugadores del equipo al roster
   const jug = mpGetJugadoresDeEquipo(nombre);
   jug.forEach(j => {
-    datos.roster.push({ numero: j.numero, nombre: j.nombre, equipo: j.equipo, valor: j.valor, pts: j.pts, lista: j.lista,
+    const idx = JUGADORES.indexOf(j);
+    datos.roster.push({ _idx: idx, numero: j.numero, nombre: j.nombre, equipo: j.equipo, valor: j.valor, pts: j.pts, lista: j.lista,
       usosLocal: j.local, usosSuda: j.sudamericana, usosLib: j.libertadores, usosMdo: j.mundial });
   });
   mpGuardarDatos(datos);
@@ -12309,13 +12333,6 @@ function mpRenderMiEquipo() {
 
   // --- Select de nuevo equipo prestado ---
   mpFillEquipoSelect('mp-select-prestado', datos.equipoInicial);
-  // Excluir también los ya prestados del select
-  const sel = document.getElementById('mp-select-prestado');
-  if (sel && datos.equiposPrestados.length > 0) {
-    Array.from(sel.options).forEach(opt => {
-      if (datos.equiposPrestados.includes(opt.value)) opt.disabled = true;
-    });
-  }
 }
 
 // =================== FIN MI EQUIPO ===================
@@ -12333,10 +12350,9 @@ function agregarTransaccion() {
   const desc = document.getElementById('mp-tx-desc').value.trim();
   const tipo = parseInt(document.getElementById('mp-tx-tipo').value);
   const monto = parseInt(document.getElementById('mp-tx-monto').value);
-  if (!desc) { alert('Ingresá una descripción.'); return; }
   if (isNaN(monto) || monto <= 0) { alert('Ingresá un monto válido.'); return; }
   const datos = mpCargarDatos();
-  datos.transacciones.push({ id: Date.now(), desc, monto: monto * tipo, fecha: new Date().toISOString().slice(0,10) });
+  datos.transacciones.push({ id: Date.now(), desc: desc || (tipo > 0 ? 'Ingreso' : 'Gasto'), monto: monto * tipo, fecha: new Date().toISOString().slice(0,10) });
   mpGuardarDatos(datos);
   document.getElementById('mp-tx-desc').value = '';
   document.getElementById('mp-tx-monto').value = '';
@@ -12554,6 +12570,8 @@ function mpRenderRoster() {
       }).join('');
     }
   }
+  // Actualizar selector de jugadores en Partidos automáticamente
+  mpRenderJugadoresSelector();
 }
 
 var MP_TORNEO_CAMPO = {
@@ -12743,6 +12761,31 @@ function reiniciarPartida() {
 
 function escHtml(s) {
   return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Set de equipos del juego normalizado (construido una vez)
+const _EQUIPOS_JUEGO = new Set(
+  JUGADORES.filter(j => j.equipo && j.equipo !== 'Golden')
+    .map(j => j.equipo.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9 ]/g,' ').trim())
+);
+function mpClubEnJuego(clubTray) {
+  // Extrae nombre sin país y normaliza
+  const cn = clubTray.replace(/\s*\([^)]+\)/g,'').trim()
+    .toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9 ]/g,' ').trim();
+  for (const eq of _EQUIPOS_JUEGO) {
+    if (eq.length > 3 && new RegExp('\\b' + eq.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + '\\b').test(cn)) return true;
+  }
+  return false;
+}
+function mpToggleTray(btn) {
+  var wrap = btn.previousSibling ? btn.parentElement : btn.closest('.trayectoria-clubes');
+  // Find hidden clubs in the same container
+  var hidden = btn.parentElement.querySelectorAll('.trayectoria-club.oculto');
+  var isExpanded = btn.dataset.expanded === '1';
+  hidden.forEach(function(el) { el.style.display = isExpanded ? 'none' : ''; el.classList.toggle('oculto', isExpanded); });
+  btn.dataset.expanded = isExpanded ? '0' : '1';
+  var total = btn.parentElement.querySelectorAll('.trayectoria-club').length;
+  btn.textContent = isExpanded ? ('+ Ver trayectoria completa (' + total + ' clubes)') : '− Ver menos';
 }
 
 document.addEventListener('click', function(e) {
