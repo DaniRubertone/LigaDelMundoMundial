@@ -217,7 +217,7 @@
 
   /* =================== MI PARTIDA =================== */
   .mipartida-page { padding: 0 0 60px; max-width: 900px; margin: 0 auto; }
-  .mp-tabs { display: flex; flex-wrap: wrap; gap: 0; background: #0f3460; border-bottom: 2px solid #0a2040; }
+  .mp-tabs { display: flex; flex-wrap: wrap; gap: 0; background: #0f3460; border-bottom: 2px solid #0a2040; position: sticky; top: 112px; z-index: 88; }
   .mp-tab { padding: 10px 20px; font-size: 0.85rem; color: #99b; cursor: pointer; border: none; background: none; border-bottom: 3px solid transparent; margin-bottom: -2px; transition: all 0.15s; }
   .mp-tab:hover { color: #eee; background: #16213e; }
   .mp-tab.active { color: #e2b84b; border-bottom-color: #e2b84b; background: #16213e; font-weight: 600; }
@@ -12431,7 +12431,7 @@ function mpVenderJugador(numero) {
   const j = datos.roster[idx];
   datos.roster.splice(idx, 1);
   datos.vendidos.push(Object.assign({}, j, { fechaVenta: new Date().toISOString().slice(0,10) }));
-  datos.transacciones.push({ id: Date.now(), desc: 'Venta: ' + j.nombre, monto: j.valor, fecha: new Date().toISOString().slice(0,10) });
+  datos.transacciones.push({ id: Date.now(), desc: 'Venta: ' + j.nombre, monto: j.valor * 1000, fecha: new Date().toISOString().slice(0,10) });
   mpGuardarDatos(datos);
   mpRenderRoster();
   mpRenderEconomia();
@@ -12515,17 +12515,17 @@ var MP_TORNEO_CAMPO = {
   Mundial:      'usosMdo'
 };
 
-// Mapeo torneo -> lista de jugadores (para obtener equipos rivales)
+// Mapeo torneo -> lista(s) de jugadores (para obtener equipos rivales)
 const MP_TORNEO_LISTA = {
-  'Local': 'Local', 'CopaArg': 'Local',
-  'Sudamericana': 'Sudamerica', 'Libertadores': 'Sudamerica',
-  'Champions': 'Champions',
-  'CopaAmerica': 'Mundial', 'Mundial': 'Mundial'
+  'Local': ['Local'], 'CopaArg': ['Local'],
+  'Sudamericana': ['Local', 'Sudamerica'], 'Libertadores': ['Local', 'Sudamerica'],
+  'Champions': ['Champions'],
+  'CopaAmerica': ['Mundial'], 'Mundial': ['Mundial']
 };
 
 function mpGetEquiposPorTorneo(torneo) {
-  const lista = MP_TORNEO_LISTA[torneo] || 'Local';
-  const set = new Set(JUGADORES.filter(j => j.lista === lista && j.equipo !== 'Golden').map(j => j.equipo));
+  const listas = MP_TORNEO_LISTA[torneo] || ['Local'];
+  const set = new Set(JUGADORES.filter(j => listas.includes(j.lista) && j.equipo !== 'Golden').map(j => j.equipo));
   return Array.from(set).sort((a, b) => a.localeCompare(b, 'es'));
 }
 
@@ -12543,7 +12543,7 @@ function mpBuscarRival(q) {
     return;
   }
   ac.innerHTML = matches.slice(0, 12).map(e =>
-    '<div class="mp-autocomplete-item" onclick="mpSeleccionarRival(' + JSON.stringify(e) + ')">' + escHtml(e) + '</div>'
+    '<div class="mp-autocomplete-item" onmousedown="event.preventDefault(); mpSeleccionarRival(' + JSON.stringify(e) + ')">' + escHtml(e) + '</div>'
   ).join('');
   ac.classList.add('open');
 }
