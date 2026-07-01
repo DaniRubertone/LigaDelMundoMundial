@@ -247,6 +247,11 @@
   .mp-btn-danger { background: #5a1a1a; color: #faa; border: 1px solid #7a2a2a; }
   .mp-btn-danger:hover { background: #7a2020; }
   .mp-btn-sm { padding: 4px 10px; font-size: 0.78rem; }
+  .mp-add-modal { position: absolute; top: 100%; left: 0; right: 0; background: #16213e; border: 1px solid #2a4a7f; border-radius: 0 0 8px 8px; z-index: 160; padding: 12px 14px; }
+  .mp-add-modal-title { font-size: 0.82rem; color: #aaa; margin-bottom: 10px; }
+  .mp-add-modal-title strong { color: #eee; }
+  .mp-add-modal-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+  .mp-add-modal-btns .mp-btn { flex: 1; min-width: 120px; text-align: center; }
   .mp-balance-display { text-align: center; padding: 8px 0; }
   .mp-balance-label { font-size: 0.78rem; color: #888; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
   .mp-balance-val { font-size: 2.2rem; font-weight: 700; color: #e2b84b; }
@@ -1401,7 +1406,7 @@ const JUGADORES = [
       "Racing Club (Argentina)",
       "Genoa (Italia)",
       "Real Zaragoza (España)",
-      "Inter (Italia)"
+      "Inter de Milan (Italia)"
     ],
     "nombre_completo": "Diego Milito",
     "wiki": "https://es.wikipedia.org/wiki/Diego_Milito"
@@ -1885,7 +1890,7 @@ const JUGADORES = [
     "mundial": 2,
     "valor": 55,
     "lista": "Local",
-    "equipo": "Ferro",
+    "equipo": "Rosario Central",
     "arquero": false,
     "leyenda": true,
     "golden": false,
@@ -1915,7 +1920,7 @@ const JUGADORES = [
     "mundial": 0,
     "valor": 18,
     "lista": "Local",
-    "equipo": "Ferro",
+    "equipo": "Rosario Central",
     "arquero": false,
     "leyenda": true,
     "golden": false,
@@ -1940,7 +1945,7 @@ const JUGADORES = [
     "mundial": 0,
     "valor": 18,
     "lista": "Local",
-    "equipo": "Ferro",
+    "equipo": "Rosario Central",
     "arquero": false,
     "leyenda": true,
     "golden": false,
@@ -1968,7 +1973,7 @@ const JUGADORES = [
     "mundial": 0,
     "valor": 15,
     "lista": "Local",
-    "equipo": "Ferro",
+    "equipo": "Rosario Central",
     "arquero": false,
     "leyenda": false,
     "golden": false,
@@ -2091,7 +2096,7 @@ const JUGADORES = [
     "mundial": 2,
     "valor": 15,
     "lista": "Local",
-    "equipo": "Talleres",
+    "equipo": "Colón",
     "arquero": false,
     "leyenda": false,
     "golden": false,
@@ -2126,7 +2131,7 @@ const JUGADORES = [
     "mundial": 0,
     "valor": 15,
     "lista": "Local",
-    "equipo": "Talleres",
+    "equipo": "Colón",
     "arquero": false,
     "leyenda": true,
     "golden": false,
@@ -2157,7 +2162,7 @@ const JUGADORES = [
     "mundial": 0,
     "valor": 12,
     "lista": "Local",
-    "equipo": "Talleres",
+    "equipo": "Colón",
     "arquero": false,
     "leyenda": false,
     "golden": false,
@@ -6402,11 +6407,11 @@ const JUGADORES = [
       "Portsmouth FC (Inglaterra)",
       "Real Zaragoza (España)",
       "San Lorenzo de Almagro (Argentina)",
-      "SC Internacional (Brasil)",
+      "Inter de Porto Alegre (Brasil)",
       "River Plate (Argentina)",
-      "SC Internacional (Brasil)",
+      "Inter de Porto Alegre (Brasil)",
       "Club Nacional de Football (Uruguay)",
-      "SC Internacional (Brasil)"
+      "Inter de Porto Alegre (Brasil)"
     ],
     "nombre_completo": "Andres D´alessandro",
     "wiki": "https://es.wikipedia.org/wiki/Andr%C3%A9s_D%27Alessandro"
@@ -7803,9 +7808,8 @@ const JUGADORES = [
     "nacionalidad": "Argentina",
     "seleccion": "Argentina",
     "clubes_trayectoria": [
-      "Talleres de Remedios de Escalada (Argentina)",
       "Banfield (Argentina)",
-      "Internazionale (Italia)"
+      "Inter de Milan (Italia)"
     ],
     "nombre_completo": "Javier Zanetti",
     "wiki": "https://es.wikipedia.org/wiki/Javier_Zanetti"
@@ -12421,13 +12425,34 @@ function mpBuscarJugador(q) {
   const top = resultados.slice(0, 12);
   if (!top.length) { list.classList.remove('open'); list.innerHTML = ''; return; }
   list.innerHTML = top.map(function(item) {
-    return '<div class="mp-autocomplete-item" onmousedown="event.preventDefault();mpAgregarJugador(' + item.idx + ')">' +
+    return '<div class="mp-autocomplete-item" onmousedown="event.preventDefault();mpMostrarOpcionesAgregado(' + item.idx + ')">' +
       escHtml(item.j.nombre) + ' <span class="aca-team">' + escHtml(item.j.equipo || '') + ' · ' + escHtml(item.j.lista) + ' · ' + item.j.valor + 'M · ' + item.j.pts + 'pts</span></div>';
   }).join('');
   list.classList.add('open');
 }
 
-function mpAgregarJugador(idx) {
+function mpMostrarOpcionesAgregado(idx) {
+  const j = JUGADORES[idx];
+  if (!j) return;
+  const list = document.getElementById('mp-autocomplete-list');
+  list.classList.remove('open');
+  list.innerHTML = '';
+  const existente = document.getElementById('mp-add-modal');
+  if (existente) existente.remove();
+  const modal = document.createElement('div');
+  modal.className = 'mp-add-modal';
+  modal.id = 'mp-add-modal';
+  modal.innerHTML =
+    '<div class="mp-add-modal-title">Agregar <strong>' + escHtml(j.nombre) + '</strong> al plantel:</div>' +
+    '<div class="mp-add-modal-btns">' +
+      '<button class="mp-btn mp-btn-secondary" onmousedown="event.preventDefault();mpAgregarJugador(' + idx + ',false)">&#127873; Préstamo / Regalo</button>' +
+      '<button class="mp-btn mp-btn-primary" onmousedown="event.preventDefault();mpAgregarJugador(' + idx + ',true)">&#128176; Compra (−$' + (j.valor * 1000).toLocaleString('es-AR') + ')</button>' +
+      '<button class="mp-btn mp-btn-danger" onmousedown="event.preventDefault();document.getElementById(\'mp-add-modal\').remove();document.getElementById(\'mp-search-jugador\').value=\'\'">Cancelar</button>' +
+    '</div>';
+  document.querySelector('.mp-autocomplete-wrap').appendChild(modal);
+}
+
+function mpAgregarJugador(idx, esCompra) {
   const j = JUGADORES[idx];
   if (!j) return;
   const datos = mpCargarDatos();
@@ -12445,12 +12470,19 @@ function mpAgregarJugador(idx) {
     usosLib: j.libertadores,
     usosMdo: j.mundial
   });
+  if (esCompra) {
+    var hoy = new Date().toISOString().slice(0,10);
+    datos.transacciones.push({ id: Date.now(), desc: 'Compra: ' + j.nombre, monto: -(j.valor * 1000), fecha: hoy });
+  }
   mpGuardarDatos(datos);
   document.getElementById('mp-search-jugador').value = '';
   document.getElementById('mp-autocomplete-list').classList.remove('open');
   document.getElementById('mp-autocomplete-list').innerHTML = '';
+  var modal = document.getElementById('mp-add-modal');
+  if (modal) modal.remove();
   mpRenderRoster();
   mpRenderPartidos();
+  if (esCompra) mpRenderEconomia();
 }
 
 function mpUsarJugador(idx, modo) {
@@ -12771,6 +12803,19 @@ function escHtml(s) {
   return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+// Alias para normalizar nombres alternativos de clubes en trayectorias
+const CLUB_ALIASES = {
+  "gimnasia y esgrima la plata": "gimnasia de la plata",
+  "gimnasia y esgrima de la plata": "gimnasia de la plata",
+  "gimnasia la plata": "gimnasia de la plata",
+  "internazionale": "inter de milan",
+  "sc internacional": "inter de porto alegre",
+  "nacional": "nacional de montevideo",
+  "universidad catolica": "u  catolica",
+  "bayern de munich": "bayern munich",
+  "bayern de munchen": "bayern munich"
+};
+
 // Set de equipos del juego normalizado (construido una vez)
 const _EQUIPOS_JUEGO = new Set(
   JUGADORES.filter(j => j.equipo && j.equipo !== 'Golden')
@@ -12778,8 +12823,9 @@ const _EQUIPOS_JUEGO = new Set(
 );
 function mpClubEnJuego(clubTray) {
   // Extrae nombre sin país y normaliza
-  const cn = clubTray.replace(/\s*\([^)]+\)/g,'').trim()
+  let cn = clubTray.replace(/\s*\([^)]+\)/g,'').trim()
     .toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9 ]/g,' ').trim();
+  if (CLUB_ALIASES[cn]) cn = CLUB_ALIASES[cn];
   for (const eq of _EQUIPOS_JUEGO) {
     if (eq.length > 3 && new RegExp('\\b' + eq.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + '\\b').test(cn)) return true;
   }
@@ -12800,6 +12846,8 @@ document.addEventListener('click', function(e) {
   if (!e.target.closest('.mp-autocomplete-wrap')) {
     var list = document.getElementById('mp-autocomplete-list');
     if (list) list.classList.remove('open');
+    var addModal = document.getElementById('mp-add-modal');
+    if (addModal) { addModal.remove(); document.getElementById('mp-search-jugador').value = ''; }
     var rivalAc = document.getElementById('mp-rival-autocomplete');
     if (rivalAc) { rivalAc.innerHTML = ''; rivalAc.classList.remove('open'); }
   }
