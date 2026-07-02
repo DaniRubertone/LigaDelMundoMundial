@@ -12971,20 +12971,31 @@ function pwaInstall() {
     _pwaPrompt.userChoice.then(() => { _pwaPrompt = null; });
     return;
   }
-  alert("Para instalar la app:
+  const ua = navigator.userAgent;
+  if (/iphone|ipad|ipod/i.test(ua)) {
+    alert("Para instalar en iPhone/iPad:
 
-iOS (Safari): tocá el botón Compartir (□↑) → Agregar a pantalla de inicio
+1. Tocá el botón Compartir (□↑) en Safari
+2. Elegí \"Agregar a pantalla de inicio\"
+3. Confirmá tocando \"Agregar\"");
+  } else if (/android/i.test(ua)) {
+    alert("Para instalar en Android:
 
-Android (Chrome): tocá los 3 puntos del menú → Añadir a pantalla de inicio");
-}
-if (/android|iphone|ipad|ipod|mobile/i.test(navigator.userAgent)) {
-  const isStandalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone;
-  if (!isStandalone) {
-    document.getElementById("pwa-install-btn").style.display = "block";
+1. Tocá los 3 puntos del menú (⋮) en Chrome
+2. Elegí \"Añadir a pantalla de inicio\"
+3. Confirmá tocando \"Añadir\"");
+  } else {
+    alert("Para instalar en el celular:
+
+iOS (Safari): tocá Compartir (□↑) → Agregar a pantalla de inicio
+
+Android (Chrome): tocá los 3 puntos (⋮) → Añadir a pantalla de inicio");
   }
 }
-
-
+const _isStandalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone;
+if (!_isStandalone) {
+  document.getElementById("pwa-install-btn").style.display = "block";
+}
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("sw.js");
 }
