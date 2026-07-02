@@ -731,7 +731,7 @@
     <div class="mp-card">
       <h3 class="mp-section-title">Dinero inicial</h3>
       <div class="mp-inline-form">
-        <input type="number" id="mp-dinero-inicial" class="mp-input" placeholder="Ej: 20000" min="0">
+        <input type="number" id="mp-dinero-inicial" class="mp-input" placeholder="Ej: 20000000" min="0">
         <button class="mp-btn mp-btn-primary" onclick="guardarDineroInicial()">Guardar</button>
       </div>
     </div>
@@ -2556,6 +2556,32 @@ const JUGADORES = [
     ],
     "nombre_completo": "Damián Faciutto",
     "wiki": "https://es.wikipedia.org/wiki/Dami%C3%A1n_Facciuto"
+  },
+  {
+    "numero": 324,
+    "nombre": "A. Mac Allister",
+    "pts": 4,
+    "local": 3,
+    "sudamericana": 0,
+    "libertadores": 2,
+    "mundial": 3,
+    "valor": 35,
+    "lista": "Local",
+    "equipo": "Argentinos Juniors",
+    "arquero": false,
+    "leyenda": false,
+    "golden": false,
+    "clubes": "Argentinos Juniors, Boca, Brighton, Liverpool",
+    "nacionalidad": "Argentina",
+    "seleccion": "Argentina",
+    "clubes_trayectoria": [
+      "Argentinos Juniors (Argentina)",
+      "Boca Juniors (Argentina)",
+      "Brighton & Hove Albion (Inglaterra)",
+      "Liverpool FC (Inglaterra)"
+    ],
+    "nombre_completo": "Alexis Mac Allister",
+    "wiki": "https://en.wikipedia.org/wiki/Alexis_Mac_Allister"
   },
   {
     "numero": 331,
@@ -12191,8 +12217,8 @@ const MP_KEY = 'jmm_partida';
 
 function mpCargarDatos() {
   const raw = localStorage.getItem(MP_KEY);
-  if (!raw) return { dineroInicial: 0, transacciones: [], roster: [], vendidos: [], partidos: [], equipoInicial: null, equiposPrestados: [] };
-  try { return JSON.parse(raw); } catch(e) { return { dineroInicial: 0, transacciones: [], roster: [], vendidos: [], partidos: [] }; }
+  if (!raw) return { dineroInicial: 20000000, transacciones: [], roster: [], vendidos: [], partidos: [], equipoInicial: null, equiposPrestados: [] };
+  try { return JSON.parse(raw); } catch(e) { return { dineroInicial: 20000000, transacciones: [], roster: [], vendidos: [], partidos: [] }; }
 }
 
 function mpGuardarDatos(datos) {
@@ -12384,7 +12410,7 @@ function mpCalcularBalance(datos) {
 function mpRenderEconomia() {
   const datos = mpCargarDatos();
   const inputInicial = document.getElementById('mp-dinero-inicial');
-  if (inputInicial) inputInicial.value = datos.dineroInicial || '';
+  if (inputInicial) inputInicial.value = (datos.dineroInicial != null ? datos.dineroInicial : '');
   const balance = mpCalcularBalance(datos);
   const balEl = document.getElementById('mp-balance-val');
   if (balEl) {
@@ -12457,6 +12483,14 @@ function mpAgregarJugador(idx, esCompra) {
   if (!j) return;
   const datos = mpCargarDatos();
   if (datos.roster.some(r => r._idx === idx)) return;
+  if (esCompra) {
+    const costo = j.valor * 1000;
+    const balance = mpCalcularBalance(datos);
+    if (balance < costo) {
+      alert('Fondos insuficientes. Tenés $' + balance.toLocaleString('es-AR') + ' y el jugador cuesta $' + costo.toLocaleString('es-AR') + '.');
+      return;
+    }
+  }
   datos.roster.push({
     _idx: idx,
     numero: j.numero,
@@ -12571,10 +12605,10 @@ function mpRenderRoster() {
         var uidStr = JSON.stringify(uid);
         return '<tr>' +
           '<td><div class="mp-accion-dropdown">' +
-            '<button class="mp-btn mp-btn-secondary mp-btn-sm" onmousedown="event.preventDefault();mpToggleMenu(' + uidStr + ')">&#8942;</button>' +
+            '<button type="button" class="mp-btn mp-btn-secondary mp-btn-sm" onmousedown="event.preventDefault();mpToggleMenu(' + uidStr + ')" ontouchstart="event.preventDefault();mpToggleMenu(' + uidStr + ')">&#8942;</button>' +
             '<div class="mp-accion-menu" id="menu-' + uid + '">' +
-              '<button onmousedown="event.preventDefault();mpVenderJugador(' + uidStr + ')">&#128176; Vender</button>' +
-              '<button class="danger" onmousedown="event.preventDefault();mpQuitarJugador(' + uidStr + ')">&#10005; Quitar</button>' +
+              '<button type="button" onmousedown="event.preventDefault();mpVenderJugador(' + uidStr + ')" ontouchstart="event.preventDefault();mpVenderJugador(' + uidStr + ')">&#128176; Vender</button>' +
+              '<button type="button" class="danger" onmousedown="event.preventDefault();mpQuitarJugador(' + uidStr + ')" ontouchstart="event.preventDefault();mpQuitarJugador(' + uidStr + ')">&#10005; Quitar</button>' +
             '</div>' +
           '</div></td>' +
           '<td class="num-cell">' + numStr + '</td>' +
