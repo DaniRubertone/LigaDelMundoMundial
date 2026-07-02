@@ -1,0 +1,18 @@
+{
+  "name": "Liga del Mundo Mundial",
+  "short_name": "LMM",
+  "description": "App companion para Liga del Mundo Mundial",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1a1a2e",
+  "theme_color": "#0f3460",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "LogotipoLMM.jpeg",
+      "sizes": "any",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    }
+  ]
+}
