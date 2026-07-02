@@ -721,8 +721,8 @@
       <li>Elegí <strong>"Añadir a pantalla de inicio"</strong></li>
       <li>Confirmá tocando <strong>"Añadir"</strong></li>
     </ol>
-    <button onclick="pwaInstall()" style="margin-top:16px; background:#e2b84b; color:#1a1a2e; border:none; border-radius:8px; padding:10px 20px; font-size:1rem; font-weight:700; cursor:pointer">&#8681; Instalar ahora</button>
-    <p style="color:#888; font-size:0.8rem; margin-top:8px">Si el botón abre el instalador nativo, usalo. Si no, seguí los pasos de arriba.</p>
+    <p style="color:#888; font-size:0.8rem; margin-top:8px">El botón de abajo puede abrir el instalador nativo directamente si Chrome lo tiene disponible.</p>
+    <button onclick="pwaInstall()" style="margin-top:8px; background:#e2b84b; color:#1a1a2e; border:none; border-radius:8px; padding:10px 20px; font-size:1rem; font-weight:700; cursor:pointer">&#8681; Instalar ahora</button>
   </div>
 
   <div id="app-ios" style="display:none; background:#0f1e3a; border-radius:12px; padding:20px; margin-bottom:16px">
@@ -737,11 +737,12 @@
 
   <div id="app-desktop" style="display:none; background:#0f1e3a; border-radius:12px; padding:20px; margin-bottom:16px">
     <h3 style="color:#e2b84b; margin-bottom:12px">&#128187; Computadora (Chrome / Edge)</h3>
+    <p style="color:#ccc; margin-bottom:12px; line-height:1.6">Chrome y Edge permiten instalar esta página como una app de escritorio. Hay dos formas:</p>
     <ol style="color:#ccc; line-height:2; padding-left:20px">
-      <li>Buscá el ícono de <strong>instalar (⊕)</strong> en la barra de direcciones</li>
-      <li>Hacé clic y confirmá la instalación</li>
+      <li>Buscá el ícono <strong>⊕</strong> o <strong>&#128187;</strong> al final de la barra de direcciones y hacé clic</li>
+      <li>O bien: menú <strong>⋮</strong> (tres puntos) → <strong>"Guardar e instalar"</strong> o <strong>"Instalar Liga del Mundo Mundial"</strong></li>
     </ol>
-    <button onclick="pwaInstall()" style="margin-top:16px; background:#e2b84b; color:#1a1a2e; border:none; border-radius:8px; padding:10px 20px; font-size:1rem; font-weight:700; cursor:pointer">&#8681; Instalar ahora</button>
+    <p style="color:#888; font-size:0.85rem; margin-top:8px">Si no ves ninguna de esas opciones, es posible que Chrome considere que la app ya está instalada o que la conexión no sea HTTPS.</p>
   </div>
 </div>
 </div>
