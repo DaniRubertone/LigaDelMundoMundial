@@ -12978,8 +12978,13 @@ iOS (Safari): tocá el botón Compartir (□↑) → Agregar a pantalla de inici
 Android (Chrome): tocá los 3 puntos del menú → Añadir a pantalla de inicio");
 }
 if (/android|iphone|ipad|ipod|mobile/i.test(navigator.userAgent)) {
-  document.getElementById("pwa-install-btn").style.display = "block";
+  const isStandalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone;
+  if (!isStandalone) {
+    document.getElementById("pwa-install-btn").style.display = "block";
+  }
 }
+
+
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("sw.js");
 }
